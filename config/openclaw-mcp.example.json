@@ -3,7 +3,11 @@
     "servers": {
       "xreader": {
         "command": "node",
-        "args": ["/Users/rushindrasinha/clawd/xreader-mcp/src/server.mjs"]
+        "args": ["/absolute/path/to/xreader-mcp/src/server.mjs"],
+        "env": {
+          "XREADER_BASE_URL": "https://bjcgmkpgrloafihbhvsz.supabase.co/functions/v1",
+          "XREADER_API_KEY": "<your-xreader-api-key>"
+        }
       }
     }
   }
