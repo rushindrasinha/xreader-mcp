@@ -1,0 +1,10 @@
+{
+  "mcp": {
+    "servers": {
+      "xreader": {
+        "command": "node",
+        "args": ["/Users/rushindrasinha/clawd/xreader-mcp/src/server.mjs"]
+      }
+    }
+  }
+}
