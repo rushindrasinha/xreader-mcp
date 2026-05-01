@@ -5,16 +5,25 @@
 <h1 align="center">xreader-mcp</h1>
 
 <p align="center">
-  The official xReader.ai bridge for <strong>MCP</strong>, <strong>CLI</strong>, <strong>Claude Code skills</strong>, and <strong>OpenClaw skills</strong>.
+  <strong>The official xReader.ai bridge for MCP, CLI, Claude Code, and OpenClaw.</strong>
 </p>
 
 <p align="center">
-  Turn any supported X/Twitter thread or X article URL into clean, AI-readable markdown your agents can actually use.
+  Give your agents the <em>clean xReader version</em> of an X/Twitter thread or article — not the noisy raw URL.
 </p>
 
 <p align="center">
-  <a href="https://github.com/rushindrasinha/xreader-mcp">GitHub</a> •
+  <a href="https://github.com/rushindrasinha/xreader-mcp"><img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/rushindrasinha/xreader-mcp?style=flat-square"></a>
+  <a href="https://github.com/rushindrasinha/xreader-mcp/commits/main/"><img alt="Last commit" src="https://img.shields.io/github/last-commit/rushindrasinha/xreader-mcp?style=flat-square"></a>
+  <img alt="Node" src="https://img.shields.io/badge/node-%3E%3D20-111827?style=flat-square&logo=node.js&logoColor=white">
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-stdio-7c3aed?style=flat-square">
+  <img alt="xReader" src="https://img.shields.io/badge/xReader-first--party%20API-0f766e?style=flat-square">
+</p>
+
+<p align="center">
+  <a href="#why-this-exists">Why</a> •
   <a href="#quick-start">Quick Start</a> •
+  <a href="#mcp-usage">MCP</a> •
   <a href="#claude-code-setup">Claude Code</a> •
   <a href="#openclaw-setup">OpenClaw</a> •
   <a href="#screenshots">Screenshots</a>
@@ -24,40 +33,76 @@
 
 ## Why this exists
 
-xReader already turns noisy X/Twitter content into a clean reading experience.
+xReader already makes X/Twitter content readable for humans.
 
-`xreader-mcp` makes that same experience available inside agent workflows:
-- **MCP clients** can call xReader as a tool
-- **CLI workflows** can fetch clean markdown or structured JSON
-- **Claude Code** can install a focused skill for thread/article reading
-- **OpenClaw** can install the same behavior as a reusable skill
+`xreader-mcp` makes it usable for agents.
 
-Instead of giving your model a raw timeline URL, you give it the fully parsed article body.
+Instead of handing your model a messy social URL, you hand it:
+- the cleaned markdown body
+- structured article metadata
+- a reusable MCP tool
+- skill packaging for Claude Code and OpenClaw
 
-## What it does
+That means better summaries, better repurposing, better Q&A, and much less brittle browsing.
 
-### Supported inputs
+## What this repo gives you
+
+- **CLI wrapper** for local read/fetch workflows
+- **stdio MCP server** exposing `xreader_read`
+- **Claude Code skill** packaged and installable
+- **OpenClaw skill** packaged and installable
+- **config examples** for both ecosystems
+- **screenshots + docs** for onboarding and sharing
+
+## Why use this vs raw URLs?
+
+| Approach | What the model sees | Reliability | Best for |
+|---|---|---:|---|
+| Raw X/Twitter URL | noisy social page | low | ad hoc browsing |
+| Browser scraping | partial DOM / rendering-dependent | medium | one-off extraction |
+| `xreader-mcp` | clean parsed article markdown | high | agent workflows, summaries, repurposing, skill use |
+
+## Supported inputs
+
 - `https://x.com/.../status/...`
 - `https://twitter.com/.../status/...`
 - `https://x.com/.../article/...`
 - `https://xreader.ai/article/<uuid>`
 
-### Supported outputs
-- **Markdown** — best for direct model context
-- **JSON** — best for programmatic workflows
+## Supported outputs
 
-### Backed by xReader's first-party API
+- **Markdown** — best for direct LLM context
+- **JSON** — best for chained workflows and structured consumers
+
+## Powered by xReader's first-party API
+
+This repo uses xReader's official API layer:
 - `api-extract`
 - `api-article/:id`
 
-## What you get in this repo
+## Architecture
+
+```mermaid
+flowchart LR
+    A[User shares X/Twitter URL] --> B[xreader-mcp]
+    B --> C[xReader API: api-extract]
+    C --> D[xReader article record]
+    D --> E[xReader API: api-article/:id]
+    E --> F[Markdown or JSON]
+    F --> G[CLI]
+    F --> H[MCP tool: xreader_read]
+    H --> I[Claude Code]
+    H --> J[OpenClaw]
+```
+
+## Repo structure
 
 ```text
 xreader-mcp/
 ├── src/
-│   ├── cli.mjs                     # local CLI wrapper
-│   ├── server.mjs                  # stdio MCP server
-│   └── xreader-client.mjs          # xReader API client
+│   ├── cli.mjs
+│   ├── server.mjs
+│   └── xreader-client.mjs
 ├── skills/
 │   ├── claude/xreader-fetch/SKILL.md
 │   └── openclaw/xreader-fetch/SKILL.md
@@ -93,38 +138,27 @@ export XREADER_API_KEY="<your-xreader-api-key>"
 | Variable | Required | Purpose |
 |---|---:|---|
 | `XREADER_BASE_URL` | No | Override the xReader API base URL |
-| `XREADER_API_KEY` | No | Attach your first-party xReader API key for rate limits, usage tracking, and paid tiers |
+| `XREADER_API_KEY` | No | Use your xReader API key for higher limits, usage tracking, and tiered access |
 
 ## CLI usage
 
-### Read a thread/article as markdown
+### Read as markdown
 
 ```bash
 node src/cli.mjs "https://x.com/i/status/2026728386857447851"
 ```
 
-### Fetch structured JSON
+### Read as JSON
 
 ```bash
 node src/cli.mjs "https://xreader.ai/article/7d1f0756-2304-465a-ab3e-737c00b4171e" --format json
 ```
 
-### Example output shape
+### Typical use cases
 
-```json
-{
-  "summary": {
-    "id": "7d1f0756-2304-465a-ab3e-737c00b4171e",
-    "title": "$1M with 0 IQ copytrading PolyMarket insiders",
-    "author_handle": "DeFi_Hanzo",
-    "content_type": "article"
-  },
-  "article": {
-    "article_title": "...",
-    "article_body_markdown": "..."
-  }
-}
-```
+- turn a thread into clean context for a model
+- save parsed output into a content pipeline
+- repurpose a thread into a blog, email, carousel, or video script
 
 ## MCP usage
 
@@ -142,14 +176,17 @@ node src/server.mjs
 - `input` — X/Twitter URL, xReader article URL, or raw article UUID
 - `format` — `markdown` or `json` (default: `markdown`)
 
-**Best use case**
-- give your model the full cleaned article body instead of a raw social URL
+**Best use cases**
+- agent summarization
+- thread-to-article workflows
+- research ingestion
+- downstream content generation
 
 ## Claude Code setup
 
 ### 1) Register the MCP server
 
-Use `config/claude-desktop.example.json` as the template:
+Use `config/claude-desktop.example.json` as the base:
 
 ```json
 {
@@ -175,19 +212,18 @@ Use `config/claude-desktop.example.json` as the template:
 Installed to:
 - `~/.claude/skills/xreader-fetch/SKILL.md`
 
-### What the skill does
+### What the Claude skill does
 
-When Claude sees an X/Twitter thread or xReader article link, the skill instructs it to:
-- call xReader through the local bridge
-- fetch the clean markdown body
-- use that markdown as the primary reasoning context
-- avoid relying on the raw tweet UI when the article body is available
+When Claude sees a supported URL, the skill teaches it to:
+- route the link through xReader
+- fetch the cleaned markdown body
+- reason over the parsed article instead of the raw social UI
 
 ## OpenClaw setup
 
 ### 1) Register the MCP server
 
-Use `config/openclaw-mcp.example.json` as the template:
+Use `config/openclaw-mcp.example.json` as the base:
 
 ```json
 {
@@ -215,23 +251,23 @@ Use `config/openclaw-mcp.example.json` as the template:
 Installed to:
 - `~/clawd/skills/xreader-fetch/SKILL.md`
 
-### What the skill does
+### What the OpenClaw skill does
 
-When OpenClaw sees a supported X/Twitter or xReader URL, the skill tells it to:
-- fetch the xReader-cleaned body
-- prefer markdown for model context
-- use the `xreader_read` MCP tool when MCP is configured
+When OpenClaw sees a supported URL, the skill teaches it to:
+- use xReader for clean article context
+- prefer markdown for reasoning
+- call `xreader_read` via MCP when available
 - fall back to normal article extraction for non-X URLs
 
 More detail: [`docs/skills.md`](docs/skills.md)
 
 ## Screenshots
 
-### Homepage
+### xReader homepage
 
 ![xReader homepage](docs/screenshots/xreader-home.png)
 
-### Reading view
+### xReader reading view
 
 ![xReader article reading view](docs/screenshots/xreader-article.png)
 
@@ -251,28 +287,29 @@ node src/cli.mjs "https://x.com/i/status/2026728386857447851" | head
 
 ### MCP smoke test
 
-Expected successful behavior:
-- MCP client connects to `src/server.mjs`
-- tool list includes `xreader_read`
-- tool call returns markdown beginning with title + metadata header
+Expected result:
+- MCP client connects
+- `xreader_read` is listed
+- returned markdown starts with title + metadata header
 
 ## Limitations
 
-- xReader support here is intentionally focused on **X/Twitter threads/articles** and existing `xreader.ai/article/...` pages
-- this repo is not a generic web article parser
-- if your xReader API base URL changes, update `XREADER_BASE_URL`
+- intentionally focused on **X/Twitter threads/articles** and existing `xreader.ai/article/...` pages
+- not a generic web article parser
+- if your deployed API origin changes, update `XREADER_BASE_URL`
 
 ## Roadmap
 
-- remote hosted MCP endpoint
-- published npm package
-- multi-language SDKs
-- expanded xReader API coverage beyond read/fetch workflows
+- hosted remote MCP endpoint
+- npm package release
+- lightweight SDKs
+- broader xReader API coverage
+- richer metadata and batch endpoints
 
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md).
 
-## Positioning
+## Final positioning
 
-**xreader-mcp is the official way to bring xReader into agent workflows — not just browser sessions.**
+**xreader-mcp is the official way to bring xReader into serious agent workflows — not just browser reading sessions.**
