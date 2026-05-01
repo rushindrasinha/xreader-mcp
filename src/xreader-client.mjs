@@ -1,15 +1,24 @@
-const SUPABASE_URL = "https://bjcgmkpgrloafihbhvsz.supabase.co";
-const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqY2dta3BncmxvYWZpaGJodnN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzMDMyMDksImV4cCI6MjA4Njg3OTIwOX0.RwPUxD3_fx3BpjQ8Cy4IaJRInnRol_KiPHlFLTTo72U";
+const DEFAULT_FUNCTIONS_BASE_URL = "https://bjcgmkpgrloafihbhvsz.supabase.co/functions/v1";
 
 const X_URL_RE = /^https?:\/\/(?:www\.|m\.|mobile\.)?(?:x|twitter)\.com\/\w+\/(?:status|article)\/\d+/i;
 const XREADER_ARTICLE_RE = /^https?:\/\/xreader\.ai\/article\/([0-9a-f-]{36})(?:[/?#].*)?$/i;
 const UUID_RE = /^[0-9a-f-]{36}$/i;
 
-const HEADERS = {
-  apikey: ANON_KEY,
-  Authorization: `Bearer ${ANON_KEY}`,
-  "Content-Type": "application/json",
-};
+function getConfig() {
+  return {
+    baseUrl: (process.env.XREADER_BASE_URL || DEFAULT_FUNCTIONS_BASE_URL).replace(/\/$/, ""),
+    apiKey: process.env.XREADER_API_KEY || "",
+  };
+}
+
+function buildHeaders(extra = {}) {
+  const { apiKey } = getConfig();
+  return {
+    "Content-Type": "application/json",
+    ...(apiKey ? { "x-api-key": apiKey } : {}),
+    ...extra,
+  };
+}
 
 function trimUrl(url) {
   return String(url).trim().split("?")[0].split("#")[0];
@@ -28,28 +37,28 @@ export function classifyInput(input) {
 }
 
 export async function fetchArticleById(articleId) {
-  const url = new URL(`${SUPABASE_URL}/rest/v1/articles`);
-  url.searchParams.set("id", `eq.${articleId}`);
-  url.searchParams.set("select", "*");
-  url.searchParams.set("limit", "1");
+  const { baseUrl } = getConfig();
+  const url = new URL(`${baseUrl}/api-article/${articleId}`);
+  url.searchParams.set("format", "json");
 
-  const response = await fetch(url, { headers: HEADERS });
+  const response = await fetch(url, { headers: buildHeaders() });
   if (!response.ok) {
     throw new Error(`xReader article lookup failed (${response.status})`);
   }
 
-  const rows = await response.json();
-  if (!Array.isArray(rows) || rows.length === 0) {
-    throw new Error(`xReader article not found: ${articleId}`);
+  const payload = await response.json();
+  if (!payload?.article) {
+    throw new Error(payload?.error || `xReader article not found: ${articleId}`);
   }
-  return rows[0];
+  return normalizeApiArticleResponse(payload, articleId);
 }
 
 export async function extractArticleFromXUrl(url) {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/extract-article`, {
+  const { baseUrl } = getConfig();
+  const response = await fetch(`${baseUrl}/api-extract`, {
     method: "POST",
-    headers: HEADERS,
-    body: JSON.stringify({ url: trimUrl(url) }),
+    headers: buildHeaders(),
+    body: JSON.stringify({ url: trimUrl(url), format: "json" }),
   });
 
   if (!response.ok) {
@@ -57,10 +66,10 @@ export async function extractArticleFromXUrl(url) {
   }
 
   const payload = await response.json();
-  if (!payload?.success || !payload?.article) {
+  if (!payload?.article) {
     throw new Error(payload?.error || "xReader extraction failed");
   }
-  return payload.article;
+  return normalizeApiArticleResponse(payload);
 }
 
 export async function readXReader(input) {
@@ -96,5 +105,26 @@ export function articleToSummary(article) {
     extracted_at: article.extracted_at,
     publication_date: article.publication_date,
     view_count: article.view_count,
+  };
+}
+
+function normalizeApiArticleResponse(payload, fallbackId = null) {
+  const article = payload.article || {};
+  const author = article.author || {};
+  const meta = payload.meta || {};
+  return {
+    id: meta.id || fallbackId,
+    original_url: article.url,
+    author_name: author.name,
+    author_handle: author.handle,
+    author_avatar_url: author.avatar,
+    article_title: article.title,
+    article_body_markdown: article.content,
+    article_body_html: article.html,
+    publication_date: article.published,
+    extracted_at: meta.parsed_at,
+    view_count: article.view_count,
+    content_type: article.content_type || "article",
+    xreader_url: meta.xreader_url,
   };
 }
