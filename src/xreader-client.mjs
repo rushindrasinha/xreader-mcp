@@ -1,13 +1,20 @@
 const DEFAULT_FUNCTIONS_BASE_URL = "https://bjcgmkpgrloafihbhvsz.supabase.co/functions/v1";
+const DEFAULT_TIMEOUT_MS = 30_000;
 
-const X_URL_RE = /^https?:\/\/(?:www\.|m\.|mobile\.)?(?:x|twitter)\.com\/\w+\/(?:status|article)\/\d+/i;
+const X_URL_RE =
+  /^https?:\/\/(?:www\.|m\.|mobile\.)?(?:x|twitter)\.com\/(?:i\/web\/|i\/)?(?:\w+\/)?(?:status|article)\/\d+/i;
 const XREADER_ARTICLE_RE = /^https?:\/\/xreader\.ai\/article\/([0-9a-f-]{36})(?:[/?#].*)?$/i;
 const UUID_RE = /^[0-9a-f-]{36}$/i;
+const X_HOSTLIKE_PREFIX_RE = /^(?:www\.|m\.|mobile\.)?(?:x|twitter)\.com\//i;
+const X_STATUS_PATH_RE =
+  /(https?:\/\/(?:www\.|m\.|mobile\.)?(?:x|twitter)\.com\/(?:i\/web\/|i\/)?(?:\w+\/)?(?:status|article)\/\d+)/i;
 
 function getConfig() {
+  const rawTimeout = Number(process.env.XREADER_TIMEOUT_MS);
   return {
     baseUrl: (process.env.XREADER_BASE_URL || DEFAULT_FUNCTIONS_BASE_URL).replace(/\/$/, ""),
     apiKey: process.env.XREADER_API_KEY || "",
+    timeoutMs: Number.isFinite(rawTimeout) && rawTimeout > 0 ? rawTimeout : DEFAULT_TIMEOUT_MS,
   };
 }
 
@@ -20,17 +27,52 @@ function buildHeaders(extra = {}) {
   };
 }
 
-function trimUrl(url) {
-  return String(url).trim().split("?")[0].split("#")[0];
+function ensureScheme(value) {
+  if (X_HOSTLIKE_PREFIX_RE.test(value)) return `https://${value}`;
+  return value;
+}
+
+export function normalizeXUrl(url) {
+  const raw = ensureScheme(String(url).trim());
+  const match = raw.match(X_STATUS_PATH_RE);
+  if (!match) return raw.split("?")[0].split("#")[0];
+  return match[1];
+}
+
+async function fetchWithTimeout(url, options = {}) {
+  const { timeoutMs } = getConfig();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`xReader request timed out after ${timeoutMs}ms`);
+    }
+    throw new Error(`xReader request failed: ${error?.message || String(error)}`);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function readErrorBody(response) {
+  const text = await response.text().catch(() => "");
+  if (!text) return "";
+  try {
+    const parsed = JSON.parse(text);
+    return parsed?.error || parsed?.message || text.slice(0, 300);
+  } catch {
+    return text.slice(0, 300);
+  }
 }
 
 export function classifyInput(input) {
-  const value = String(input || "").trim();
+  const value = ensureScheme(String(input || "").trim());
   if (!value) throw new Error("Missing URL or article ID");
   if (UUID_RE.test(value)) return { kind: "article_id", value };
   const xreader = value.match(XREADER_ARTICLE_RE);
   if (xreader) return { kind: "article_id", value: xreader[1] };
-  if (X_URL_RE.test(value)) return { kind: "x_url", value: trimUrl(value) };
+  if (X_URL_RE.test(value)) return { kind: "x_url", value: normalizeXUrl(value) };
   throw new Error(
     "Unsupported input. Use an x.com/twitter.com status/article URL, xreader.ai/article/<id>, or a raw xReader article UUID.",
   );
@@ -41,9 +83,12 @@ export async function fetchArticleById(articleId) {
   const url = new URL(`${baseUrl}/api-article/${articleId}`);
   url.searchParams.set("format", "json");
 
-  const response = await fetch(url, { headers: buildHeaders() });
+  const response = await fetchWithTimeout(url, { headers: buildHeaders() });
   if (!response.ok) {
-    throw new Error(`xReader article lookup failed (${response.status})`);
+    const detail = await readErrorBody(response);
+    throw new Error(
+      `xReader article lookup failed (${response.status})${detail ? `: ${detail}` : ""}`,
+    );
   }
 
   const payload = await response.json();
@@ -55,14 +100,17 @@ export async function fetchArticleById(articleId) {
 
 export async function extractArticleFromXUrl(url) {
   const { baseUrl } = getConfig();
-  const response = await fetch(`${baseUrl}/api-extract`, {
+  const response = await fetchWithTimeout(`${baseUrl}/api-extract`, {
     method: "POST",
     headers: buildHeaders(),
-    body: JSON.stringify({ url: trimUrl(url), format: "json" }),
+    body: JSON.stringify({ url: normalizeXUrl(url), format: "json" }),
   });
 
   if (!response.ok) {
-    throw new Error(`xReader extraction failed (${response.status})`);
+    const detail = await readErrorBody(response);
+    throw new Error(
+      `xReader extraction failed (${response.status})${detail ? `: ${detail}` : ""}`,
+    );
   }
 
   const payload = await response.json();

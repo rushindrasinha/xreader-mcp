@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  Give your agents the <em>clean xReader version</em> of an X/Twitter thread or article — not the noisy raw URL.
+  Turn supported X/Twitter links into clean, AI-readable context your agents can actually reason over.
 </p>
 
 <p align="center">
@@ -43,22 +43,22 @@ Instead of handing your model a messy social URL, you hand it:
 - a reusable MCP tool
 - skill packaging for Claude Code and OpenClaw
 
-That means better summaries, better repurposing, better Q&A, and much less brittle browsing.
+That means better summaries, stronger repurposing workflows, cleaner Q&A, and far less brittle browsing.
 
 ## What this repo gives you
 
-- **CLI wrapper** for local read/fetch workflows
+- **CLI wrapper** for local fetch/read workflows
 - **stdio MCP server** exposing `xreader_read`
-- **Claude Code skill** packaged and installable
-- **OpenClaw skill** packaged and installable
+- **Claude Code skill** ready to install
+- **OpenClaw skill** ready to install
 - **config examples** for both ecosystems
-- **screenshots + docs** for onboarding and sharing
+- **screenshots and docs** for onboarding, demos, and sharing
 
 ## Why use this vs raw URLs?
 
 | Approach | What the model sees | Reliability | Best for |
 |---|---|---:|---|
-| Raw X/Twitter URL | noisy social page | low | ad hoc browsing |
+| Raw X/Twitter URL | social UI + timeline chrome | low | ad hoc browsing |
 | Browser scraping | partial DOM / rendering-dependent | medium | one-off extraction |
 | `xreader-mcp` | clean parsed article markdown | high | agent workflows, summaries, repurposing, skill use |
 
@@ -139,6 +139,7 @@ export XREADER_API_KEY="<your-xreader-api-key>"
 |---|---:|---|
 | `XREADER_BASE_URL` | No | Override the xReader API base URL |
 | `XREADER_API_KEY` | No | Use your xReader API key for higher limits, usage tracking, and tiered access |
+| `XREADER_TIMEOUT_MS` | No | Request timeout in ms (default `30000`) |
 
 ## CLI usage
 
@@ -156,9 +157,9 @@ node src/cli.mjs "https://xreader.ai/article/7d1f0756-2304-465a-ab3e-737c00b4171
 
 ### Typical use cases
 
-- turn a thread into clean context for a model
-- save parsed output into a content pipeline
-- repurpose a thread into a blog, email, carousel, or video script
+- turn a thread into clean model context
+- feed parsed output into a content pipeline
+- repurpose a thread into a blog post, email, carousel, or video script
 
 ## MCP usage
 
@@ -217,7 +218,7 @@ Installed to:
 When Claude sees a supported URL, the skill teaches it to:
 - route the link through xReader
 - fetch the cleaned markdown body
-- reason over the parsed article instead of the raw social UI
+- reason over the parsed article instead of the raw social page
 
 ## OpenClaw setup
 
@@ -257,7 +258,7 @@ When OpenClaw sees a supported URL, the skill teaches it to:
 - use xReader for clean article context
 - prefer markdown for reasoning
 - call `xreader_read` via MCP when available
-- fall back to normal article extraction for non-X URLs
+- fall back to normal article extraction for unsupported non-X URLs
 
 More detail: [`docs/skills.md`](docs/skills.md)
 
@@ -312,4 +313,4 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 ## Final positioning
 
-**xreader-mcp is the official way to bring xReader into serious agent workflows — not just browser reading sessions.**
+**xreader-mcp is the official way to bring xReader into modern agent workflows.**
