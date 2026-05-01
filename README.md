@@ -1,6 +1,6 @@
 # xreader-mcp
 
-Unofficial MCP + CLI bridge for `xreader.ai`.
+Official MCP + CLI bridge for `xreader.ai` programmatic endpoints.
 
 What it does:
 - accepts `x.com/.../status/...`
@@ -8,6 +8,22 @@ What it does:
 - accepts `x.com/.../article/...`
 - accepts `xreader.ai/article/<uuid>`
 - returns the clean xReader markdown body for direct LLM consumption
+
+This bridge uses xReader's first-party API functions:
+- `api-extract`
+- `api-article/:id`
+
+## Configuration
+
+Optional environment variables:
+
+```bash
+export XREADER_BASE_URL="https://bjcgmkpgrloafihbhvsz.supabase.co/functions/v1"
+export XREADER_API_KEY="<your xreader api key>"
+```
+
+- `XREADER_BASE_URL` defaults to the current production xReader functions base.
+- `XREADER_API_KEY` is optional, but recommended for higher limits and usage tracking.
 
 ## Install
 
@@ -74,4 +90,4 @@ Output:
 
 ## Caveat
 
-This is an unofficial wrapper around xReader's public web backend. If xReader changes their Supabase function or schema, this bridge will need an update.
+This bridge is now aligned with xReader's first-party API layer, but the default production base URL should be updated if your deployed API origin changes.
